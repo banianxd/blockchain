@@ -1,0 +1,57 @@
+# Dir
+.vs/
+GeneratedFiles/
+build/
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Executables
+*.out
+*.app
+*.DS_Store
+local.properties
+/Android/.gradle
+/Android/.project
+/Android/tokencore/build
+/Android/tokencore/.externalNativeBuild
+*.iml
+/x64
+/Android/.idea
+/Debug
+/Release
+/TokenCore/Debug
+/TokenCore/Release
+/TokenCore/x64
+/TCTest/Debug
+/TCTest/Release
+/TCTest/x64
+/iOS/cmake_install.cmake
+/iOS/CMakeCache.txt
+/iOS/CMakeFiles/
+/iOS/CMakeScripts/
+/iOS/Project.xcodeproj/
+/iOS/Project.build/
