@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-#define BTXON_DEV
-
 #include "Coin.h"
 
 #ifndef WIN32
@@ -15,9 +13,6 @@
        #define _strdup strdup
     #endif //_strdup
 #endif //WIN32
-
-#define MIN_FIRMWARE_VER_MAJOR 1
-#define MIN_FIRMWARE_VER_MINOR 5
 
 //现实货币类型
 enum CurrencyType {

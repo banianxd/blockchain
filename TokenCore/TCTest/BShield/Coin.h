@@ -70,6 +70,18 @@ enum CoinTypeMinor
 	ETH_DELC = 32,
 	ETH_GGC = 33,
 	ETH_GGT = 34,
+	TRX_DICE = 0x8001,
+	TRX_BET = 0x8002,
+	TRX_FUN = 0x8003,
+	TRX_AB = 0x8004,
+	TRX_TWJ = 0x8005,
+	TRX_ANTE = 0x8006,
+	TRX_CTT = 0x8007,
+	TRX_GAME = 0x8008,
+	TRX_PLAY = 0x8009,
+	TRX_CFT = 0x800A,
+	TRX1_TONE = 1,
+	TRX1_BTT = 2,
 };
 
 class CoinType
@@ -132,27 +144,19 @@ public:
 	QString display_name;		// 中文名(或某种指定语言的名字)
 	QString contract_address;	// 合约地址
 	int precision;				// 小数点后 0 的个数
+	QString explorer;			// 链浏览器地址
 	CoinType type;				// 类型
 
 	Coin() {}
 
-	Coin(const char* symbol, const char* display_name, const char* contract_address, const int precision, const CoinType& type) :
+	Coin(const char* symbol, const char* display_name, const char* contract_address, const int precision, const char* explorer, const CoinType& type) :
 		symbol(symbol)
 		, display_name(QObject::trUtf8(display_name))
 		, contract_address(QObject::trUtf8(contract_address))
 		, precision(precision)
+		, explorer(explorer)
 		, type(type)
 	{
-	}
-
-	Coin& operator=(const Coin& coin)
-	{
-		if (this != &coin)
-		{
-			symbol = coin.symbol;
-			type = coin.type;
-		}
-		return *this;
 	}
 
 	double to_double(u256 value) const
@@ -246,7 +250,7 @@ public:
 		}
 		val = lstr.right(lstr.length() - i);
 
-		u256 value(val.toStdString());
+		u256 value = val.toStdString();
 		return value;
 	}
 };
@@ -301,6 +305,18 @@ constexpr CoinType CT_BHP(CoinTypeMajor::BHP, CoinTypeMinor::BHP_BHP, 0);
 constexpr CoinType CT_BHP_TEST(CoinTypeMajor::BHP, CoinTypeMinor::BHP_BHP, 1);
 constexpr CoinType CT_TRX(CoinTypeMajor::TRX, CoinTypeMinor::TRX_TRX, 0);
 constexpr CoinType CT_TRX_TEST(CoinTypeMajor::TRX, CoinTypeMinor::TRX_TRX, 1);
+constexpr CoinType CT_TRX_DICE(CoinTypeMajor::TRX, CoinTypeMinor::TRX_DICE, 0);
+constexpr CoinType CT_TRX_BET(CoinTypeMajor::TRX, CoinTypeMinor::TRX_BET, 0);
+constexpr CoinType CT_TRX_FUN(CoinTypeMajor::TRX, CoinTypeMinor::TRX_FUN, 0);
+constexpr CoinType CT_TRX_AB(CoinTypeMajor::TRX, CoinTypeMinor::TRX_AB, 0);
+constexpr CoinType CT_TRX_TWJ(CoinTypeMajor::TRX, CoinTypeMinor::TRX_TWJ, 0);
+constexpr CoinType CT_TRX_ANTE(CoinTypeMajor::TRX, CoinTypeMinor::TRX_ANTE, 0);
+constexpr CoinType CT_TRX_CTT(CoinTypeMajor::TRX, CoinTypeMinor::TRX_CTT, 0);
+constexpr CoinType CT_TRX_GAME(CoinTypeMajor::TRX, CoinTypeMinor::TRX_GAME, 0);
+constexpr CoinType CT_TRX_PLAY(CoinTypeMajor::TRX, CoinTypeMinor::TRX_PLAY, 0);
+constexpr CoinType CT_TRX_CFT(CoinTypeMajor::TRX, CoinTypeMinor::TRX_CFT, 0);
+constexpr CoinType CT_TRX1_TONE(CoinTypeMajor::TRX, CoinTypeMinor::TRX1_TONE, 0);
+constexpr CoinType CT_TRX1_BTT(CoinTypeMajor::TRX, CoinTypeMinor::TRX1_BTT, 0);
 
 Coin& GetCoinByType(const CoinType& type);
 QString GetCoinIDByType(const CoinType& type);
