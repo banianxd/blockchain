@@ -2,6 +2,7 @@
 
 #include <map>
 #include <algorithm>
+#include <sstream>
 #include <json/json.h>
 
 #include <uEcc/macroECC.h>
@@ -15,6 +16,7 @@
 
 #include "Tron/CJsonObject.hpp"
 #include "crypto/tx_util.h"
+#include "u256.h"
 
 namespace TRONAPI
 {
@@ -140,34 +142,45 @@ string get_public_key(const string str_prikey, bool is_compress /* = true */)
 	return "04" + Binary::encode(sz_pubkey);
 }
 
-string get_address(const string &str_pubkey_nocompress, bool is_mainnet /* = true */)
+string get_address(const string &str_pubkey, bool is_mainnet /* = true */)
 {
-    if (str_pubkey_nocompress.size() != 128 && str_pubkey_nocompress.size() != 130)
-        return string("");
+	Binary bin_pubkey = Binary::decode(str_pubkey);
+	Binary bin_pubkey_nocompress;
 
-	string str_pubkey;
-	if (str_pubkey_nocompress.size() == 130)
-		str_pubkey = str_pubkey_nocompress.substr(2);
+	if (bin_pubkey.size() == 33)
+	{
+		if ((bin_pubkey[0] != 2) && (bin_pubkey[0] != 3))
+			return string("");
+
+		// 压缩格式
+		bin_pubkey_nocompress.resize(64);
+		mECC_decompress(bin_pubkey.data(), bin_pubkey_nocompress.data());
+	}
+	else if (bin_pubkey.size() == 65)
+	{
+		if (bin_pubkey[0] != 4)
+			return string("");
+
+		bin_pubkey_nocompress = bin_pubkey.right(64);
+	}
+	else if (bin_pubkey.size() == 64)
+		bin_pubkey_nocompress = bin_pubkey;
 	else
-		str_pubkey = str_pubkey_nocompress;
+		return string("");
 
-    string str_address;
-    Binary sz_keccak256(32);
-    Binary sz_pubkey_nocompress = Binary::decode(str_pubkey);
-    keccak_256(sz_pubkey_nocompress.data(), sz_pubkey_nocompress.size(), sz_keccak256.data());
-    string str_keccak256 = Binary::encode(sz_keccak256);
+    Binary bin_keccak256(32);
+    keccak_256(bin_pubkey_nocompress.data(), bin_pubkey_nocompress.size(), bin_keccak256.data());
+    string str_keccak256 = Binary::encode(bin_keccak256);
     string str_pubkey_hash = str_keccak256.substr(str_keccak256.size() - 40);
-	if (is_mainnet) {
-		str_pubkey_hash = "41" + str_pubkey_hash;
-	}
-	else {
-		str_pubkey_hash = "a0" + str_pubkey_hash;
-	}
+    if (is_mainnet)
+        str_pubkey_hash = "41" + str_pubkey_hash;
+    else
+        str_pubkey_hash = "a0" + str_pubkey_hash;
 
     Binary sz_pubkey_hash = Binary::decode(str_pubkey_hash);
     Binary sz_checksum = bitcoin256(sz_pubkey_hash).left(4);
-    sz_pubkey_hash += sz_checksum;	
-    str_address = encode_base58(sz_pubkey_hash);
+    sz_pubkey_hash += sz_checksum;
+    string str_address = encode_base58(sz_pubkey_hash);
     return str_address;
 }
 
@@ -200,7 +213,8 @@ string make_unsigned_tx_trc10(
     const string &str_from_address,
     const string &str_to_address,
     uint64_t u64_amount
-) {
+)
+ {
     if (str_from_address.size() != 34 || str_to_address.size() != 34)
         return string("");
 
@@ -310,7 +324,9 @@ string make_unsigned_tx_trc20(
     const string &str_contract_address,
     const string &str_from_address,
     const string &str_to_address,
-    uint64_t u64_amount)
+	const string &str_amount
+    //uint64_t u64_amount
+)
 {
     if (str_from_address.size() != 34 || str_to_address.size() != 34)
         return string("");
@@ -363,7 +379,8 @@ string make_unsigned_tx_trc20(
 
     // parameters
     Binary sz_to_pubkey_hash_256 = padding_to_256bit(sz_to_pubkey_hash);
-    Binary sz_amount = Binary::decode(uint64_t_to_big_endian(u64_amount));
+    //Binary sz_amount = Binary::decode(uint64_t_to_big_endian(u64_amount));
+	Binary sz_amount = Binary::decode(str_amount);
     sz_amount = padding_to_256bit(sz_amount);
 
     // bytes data
@@ -390,36 +407,34 @@ string make_unsigned_tx_trc20(
     return str_raw_data;
 }
 
-string make_unsigned_tx_from_json(const string &str_unsined_tx_json) {
-	if ("" == str_unsined_tx_json) {
-		return string("");
+int make_unsign_tx(UserTransaction* ut)
+{
+	if (ut->contract_address.empty())
+	{
+		ut->tx_str = make_unsigned_tx_trc10("TRX", ut->block_id, ut->from_address, ut->to_address, (uint64_t)ut->pay);
+		if (ut->tx_str.empty())
+			return -1;
 	}
-
-	neb::CJsonObject oJson(str_unsined_tx_json);
-	string str_raw_data_tag = "raw_data", str_contract_tag = "contract";
-	string str_type = oJson[str_raw_data_tag][str_contract_tag][0]["type"].ToString();
-	str_type = str_type.substr(1, str_type.size() - 2);
-
-	if ("TransferContract" == str_type) {
-		return make_unsigned_tx_trx_from_json(str_unsined_tx_json);
+	else if (ut->contract_address.size() < 10)
+	{
+		// TRC10 代币
+		ut->tx_str = make_unsigned_tx_trc10(ut->contract_address, ut->block_id, ut->from_address, ut->to_address, (uint64_t)ut->pay);
+		if (ut->tx_str.empty())
+			return -1;
 	}
-	else if ("TriggerSmartContract" == str_type) {
-		return make_unsigned_tx_trc20_from_json(str_unsined_tx_json);
+	else
+	{
+		// TRC20 代币(这里金额必须是16进制的字符串)
+		ut->tx_str = make_unsigned_tx_trc20(ut->block_id, ut->contract_address, ut->from_address, ut->to_address, ut->pay.hex_str());
+		if (ut->tx_str.empty())
+			return -1;
 	}
-	else if ("FreezeBalanceContract" == str_type) {
-		return make_unsigned_tx_freeze_from_json(str_unsined_tx_json);
-	}
-	else if ("UnfreezeBalanceContract" == str_type) {
-		return make_unsigned_tx_unfreeze_from_json(str_unsined_tx_json);
-	}
-	else {
-		return string("");
-	}
+	return 0;
 }
 
 string make_unsigned_tx_trc20_from_json(const string &str_unsign_tx_trc20_json)
 {
-    if ("" == str_unsign_tx_trc20_json)
+    if (str_unsign_tx_trc20_json.empty())
         return string("");
 
     neb::CJsonObject oJson(str_unsign_tx_trc20_json);
@@ -492,8 +507,9 @@ string make_unsigned_tx_trc20_from_json(const string &str_unsign_tx_trc20_json)
     return str_raw_data;
 }
 
-string make_unsigned_tx_trx_from_json(const string &str_unsigned_tx_trx_json) {
-	if ("" == str_unsigned_tx_trx_json)
+string make_unsigned_tx_trx_from_json(const string &str_unsigned_tx_trx_json)
+{
+	if (str_unsigned_tx_trx_json.empty())
 		return std::string("");
 
 	neb::CJsonObject oJson(str_unsigned_tx_trx_json);
@@ -566,8 +582,9 @@ string make_unsigned_tx_trx_from_json(const string &str_unsigned_tx_trx_json) {
 	return str_raw_data;
 }
 
-string make_unsigned_tx_freeze_from_json(const string &str_unsigned_tx_freeze_json) {
-	if ("" == str_unsigned_tx_freeze_json)
+string make_unsigned_tx_freeze_from_json(const string &str_unsigned_tx_freeze_json)
+{
+	if (str_unsigned_tx_freeze_json.empty())
 		return std::string("");
 
 	neb::CJsonObject oJson(str_unsigned_tx_freeze_json);
@@ -650,8 +667,9 @@ string make_unsigned_tx_freeze_from_json(const string &str_unsigned_tx_freeze_js
 	return str_raw_data;
 }
 
-string make_unsigned_tx_unfreeze_from_json(const string &str_unsigned_tx_unfreeze_json) {
-	if ("" == str_unsigned_tx_unfreeze_json)
+string make_unsigned_tx_unfreeze_from_json(const string &str_unsigned_tx_unfreeze_json)
+{
+	if (str_unsigned_tx_unfreeze_json.empty())
 		return std::string("");
 
 	neb::CJsonObject oJson(str_unsigned_tx_unfreeze_json);
@@ -724,9 +742,36 @@ string make_unsigned_tx_unfreeze_from_json(const string &str_unsigned_tx_unfreez
 	return str_raw_data;
 }
 
+string make_unsigned_tx_from_json(const string &str_unsined_tx_json)
+{
+	if (str_unsined_tx_json.empty())
+		return string("");
+
+	neb::CJsonObject oJson(str_unsined_tx_json);
+	string str_raw_data_tag = "raw_data", str_contract_tag = "contract";
+	string str_type = oJson[str_raw_data_tag][str_contract_tag][0]["type"].ToString();
+	str_type = str_type.substr(1, str_type.size() - 2);
+
+	if ("TransferContract" == str_type) {
+		return make_unsigned_tx_trx_from_json(str_unsined_tx_json);
+	}
+	else if ("TriggerSmartContract" == str_type) {
+		return make_unsigned_tx_trc20_from_json(str_unsined_tx_json);
+	}
+	else if ("FreezeBalanceContract" == str_type) {
+		return make_unsigned_tx_freeze_from_json(str_unsined_tx_json);
+	}
+	else if ("UnfreezeBalanceContract" == str_type) {
+		return make_unsigned_tx_unfreeze_from_json(str_unsined_tx_json);
+	}
+	else {
+		return string("");
+	}
+}
+
 string tx_hash(const string& str_unsign_tx)
 {
-	if ("" == str_unsign_tx)
+	if (str_unsign_tx.empty())
 		return string("");
 
 	Binary sz_unsign_tx = Binary::decode(str_unsign_tx);
@@ -736,7 +781,7 @@ string tx_hash(const string& str_unsign_tx)
 
 string sign_tx(const string &str_unsign_tx, const string &str_prikey)
 {
-    if (str_unsign_tx == "" || str_prikey.size() != 64)
+    if (str_unsign_tx.empty() || str_prikey.size() != 64)
         return string("");
 
     Binary sz_unsign_tx = Binary::decode(str_unsign_tx);
@@ -754,23 +799,25 @@ string sign_tx(const string &str_unsign_tx, const string &str_prikey)
 static const string TRX_MESSAGE_HEADER = "\u0019TRON Signed Message:\n";
 static const string ETH_MESSAGE_HEADER = "\u0019Ethereum Signed Message:\n";
 
+Binary make_unsigned_message(const bool use_trx_header, const string &str_transaction)
+{
+	string fmt = use_trx_header?TRX_MESSAGE_HEADER:ETH_MESSAGE_HEADER;
+	if (use_trx_header){
+		fmt += "32";
+	} else {
+		char str_len[5] = {0};
+		sprintf(str_len, "%d", (int)str_transaction.length() / 2);
+		fmt += str_len;
+	}
+	return Binary(fmt) + Binary::decode(str_transaction);
+}
+
 string sign_message(const bool use_trx_header, const string &str_transaction , const string &str_prikey)
 {
-    if (str_transaction == "" || str_prikey.size() != 64)
+    if (str_transaction.empty() || str_prikey.size() != 64)
         return string("");
-
-    string fmt = use_trx_header?TRX_MESSAGE_HEADER:ETH_MESSAGE_HEADER;
-    if (use_trx_header){
-        fmt += "32";
-    } else {
-        char str_len[5] = {0};
-        sprintf(str_len, "%d", (int)str_transaction.length() / 2);
-        fmt += str_len;
-    }
-    Binary sz_unsign_tx = Binary(fmt) + Binary::decode(str_transaction);
-
-
-    Binary sz_hash(32);
+	Binary sz_unsign_tx = make_unsigned_message(use_trx_header, str_transaction);
+	Binary sz_hash(32);
     keccak_256(sz_unsign_tx.data(), sz_unsign_tx.size(), sz_hash.data());
     Binary sz_prikey = Binary::decode(str_prikey);
     Binary sz_sign(mECC_BYTES * 2);
@@ -781,10 +828,9 @@ string sign_message(const bool use_trx_header, const string &str_transaction , c
     return str_sign;
 }
 
-
 string make_sign_tx(const string &str_unsign_tx, const string &str_sign_data)
 {
-    if (str_unsign_tx == "" || str_sign_data.size() != 130)
+    if (str_unsign_tx.empty() || str_sign_data.size() != 130)
         return string("");
 
     tronProtocol::Transaction tx;
@@ -804,7 +850,7 @@ string make_sign_tx(const string &str_unsign_tx, const string &str_sign_data)
 
 string trx10_to_json(const string &str_token_name, const string &str_sign_tx)
 {
-    if ("" == str_sign_tx || "" == str_token_name)
+    if (str_sign_tx.empty() || str_token_name.empty())
         return string("");
 
     tronProtocol::Transaction tx;
@@ -920,7 +966,7 @@ string trx10_to_json(const string &str_token_name, const string &str_sign_tx)
 
 string trx20_to_json(const string &str_sign_tx)
 {
-    if ("" == str_sign_tx)
+    if (str_sign_tx.empty())
         return string("");
 
     tronProtocol::Transaction tx;
@@ -1012,6 +1058,20 @@ string trx20_to_json(const string &str_sign_tx)
     string str_sign_tx_json = oJson.ToFormattedString();
     return str_sign_tx_json;
 }
+
+// 生成固件需要的格式的数据
+Binary firmware_prepare_data(UserTransaction* ut)
+{
+	Binary fdata(6);
+
+	*((int*)fdata.data()) = ut->change_wallet_index;
+	fdata.data()[4] = 0;	// 收款地址在output中的序号
+	fdata.data()[5] = 1;	// 找零地址在output中的序号
+	fdata += Binary::decode(ut->tx_str);
+
+	return fdata;
+}
+
 } // namespace TRONAPI
 
 namespace TRX_API
@@ -1032,7 +1092,7 @@ typedef struct TRX_TX_INTERNAL
       "token": "TRX",
       "from": "TPiQeYwqPosuun4DB3UJ5sE7ajnray58nc",
       "to": "TMxbZ97qmYc9sqhKznrbsAeN2B1FMN3B6R",
-      "amount": 500
+      "amount": "500"
     }
 
     2. TRC20
@@ -1041,7 +1101,7 @@ typedef struct TRX_TX_INTERNAL
       "contract": "TP52amYqPosutn41B3tJ7sE7ajnray50nd",
       "from": "TPiQeYwqPosuun4DB3UJ5sE7ajnray58nc",
       "to": "TMxbZ97qmYc9sqhKznrbsAeN2B1FMN3B6R",
-      "amount": 500
+      "amount": "500"
     }
 
     3. From JSON
@@ -1083,7 +1143,8 @@ int TxCreate(_in const char *json_param, _out TRX_TX **tx)
         if (j_block_id.isNull() || !j_block_id.isString()
             || j_from_addr.isNull() || !j_from_addr.isString()
             || j_to_addr.isNull() || !j_to_addr.isString()
-            || j_amount.isNull() || !j_amount.isUInt64()
+            // || j_amount.isNull() || !j_amount.isUInt64()
+			|| j_amount.isNull() || !j_amount.isString()
             ) {
             return -1;
         }
@@ -1094,13 +1155,16 @@ int TxCreate(_in const char *json_param, _out TRX_TX **tx)
         string str_block_id = j_block_id.asString();
         string str_from_address = j_from_addr.asString();
         string str_to_address = j_to_addr.asString();
-        uint64 amount = j_amount.asUInt64();
+		string str_amount = j_amount.asString();
 
         if (!j_token.isNull()) {
             is_trc10 = true;
             str_token = j_token.asString();
             if (str_token.empty())
                 return -1;
+			std::stringstream sstr(str_amount);
+			uint64_t amount = 0;
+			sstr >> amount;
             ret = TRONAPI::make_unsigned_tx_trc10(str_token, str_block_id, str_from_address,
                 str_to_address, amount);
         }
@@ -1108,8 +1172,10 @@ int TxCreate(_in const char *json_param, _out TRX_TX **tx)
             string str_contract = j_contract.asString();
             if (str_contract.empty())
                 return -1;
+			u256 u256_amount(str_amount);
+			str_amount = u256_amount.hex_str();
             ret = TRONAPI::make_unsigned_tx_trc20(str_block_id, str_contract, str_from_address,
-                str_to_address, amount);
+                str_to_address, str_amount);
         }
     }
 
