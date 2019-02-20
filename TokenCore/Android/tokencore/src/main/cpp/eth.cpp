@@ -59,10 +59,10 @@ Java_com_btxon_tokencore_TxEth__1createTx(JNIEnv *env, jclass type, jstring para
     ut->from_address = j_from_address.asString();
     ut->to_address = j_to_address.asString();
     ut->change_address = ut->from_address;
-    ut->pay = atoll(j_value.asString().c_str());
-    ut->nonce = atoll(j_nonce.asString().c_str());
-    ut->fee_count = atoll(j_fee_count.asString().c_str());
-    ut->fee_price = atoll(j_fee.asString().c_str());
+    ut->pay = u256(j_value.asString().c_str());
+    ut->nonce = u256(j_nonce.asString().c_str());
+    ut->fee_count = u256(j_fee_count.asString().c_str());
+    ut->fee_price = u256(j_fee.asString().c_str());
     ut->contract_address = j_contract_address.asString();
     ut->from_wallet_index = 0;
     ut->change_wallet_index = 0;

@@ -4,6 +4,7 @@ package com.btxon.tokencore;
 // TRX = Tron 波场币
 //===========================================
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.math.BigInteger;
@@ -47,7 +48,15 @@ public class TxTRX extends Tx {
 //        _tx = _createTx(from_addr, to_addr, amount.toByteArray());
 //        return 0;
 //    }
-    public int init(final String json_param) {
+    public int init(String json_param) {
+        try {//FIXME dirtyFix amount本来是整数, 后来改为字符串
+            JSONObject object = new JSONObject(json_param);
+            if (object.has("amount") && object.getString("amount") == null) {
+                object.put("amount", Long.toString(object.getLong("amount")));
+            }
+            json_param = object.toString();
+        } catch (JSONException ignored) {
+        }
         _tx = _createTx(json_param);
         return 0;
     }
@@ -193,6 +202,10 @@ public class TxTRX extends Tx {
         return _getPubKey(json_param);
     }
 
+    public String makeUnsignedMessage(final boolean useTronHeader, final String message) {
+        return _make_unsigned_message(useTronHeader, message);
+    }
+
     //-----------------------------------
     // Native API, see tron.cpp
     //-----------------------------------
@@ -223,4 +236,6 @@ public class TxTRX extends Tx {
     public static native String _sign_tx(final String tx, final String priKey);
 
     public static native String _sign_message(final boolean userTronHeader, final String transaction, final String priKey);
+
+    public static native String _make_unsigned_message(final boolean userTronHeader, final String transaction);
 }

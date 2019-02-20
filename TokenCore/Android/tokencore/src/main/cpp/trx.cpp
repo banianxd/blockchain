@@ -186,3 +186,15 @@ Java_com_btxon_tokencore_TxTRX__1sign_1message(JNIEnv *env, jclass type, jboolea
     return jret;
 }
 
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_btxon_tokencore_TxTRX__1make_1unsigned_1message(JNIEnv *env, jclass type,
+                                                         jboolean use_tron_header,
+                                                         jstring j_str_message) {
+    const char *const_char_message = env->GetStringUTFChars(j_str_message, nullptr);
+    Binary unsigned_message = TRONAPI::make_unsigned_message(use_tron_header, const_char_message);
+    jstring jret = env->NewStringUTF(Binary::encode(unsigned_message).c_str());
+    env->ReleaseStringUTFChars(j_str_message, const_char_message);
+    return jret;
+}
+
