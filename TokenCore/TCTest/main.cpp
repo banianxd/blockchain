@@ -103,11 +103,11 @@ int main(int argc, char *argv[])
 	//U256Test();
 	//CosTest();
 	//BtxonAPITest();
-	BTCTest();
+	//BTCTest();
 	//BHPTest();
 	//EthTest();
 	//EosTest();
-	//TronTest();
+	TronTest();
 	//BumoTest();
 
 	return 0;

@@ -154,20 +154,22 @@ static void test_firmware_sign()
 // 软件签名的交易过程
 static void test_sign()
 {
+	QString coinID = "ETH";
+	//QString coinID = "ETH-RUFF";
+
 	UserTransaction ut;
 	ut.from_address = "0xcFeFbd41025Fe3EAc18b532F3cA645e8B25Fd3a3";		// 模拟器
 	ut.to_address = "0xAB8582E91e2387E2CA67542B26E67FdD245e0f0b";		// 硬件
-	ut.pay = (uint64_t)gCoin["ETH"].from_display("0.0013");
+	ut.pay = gCoin[coinID].from_display("0.0013");
+	//ut.pay = gCoin[coinID].from_display("14.28");
 	ut.from_wallet_index = 0;
 	ut.change_wallet_index = 0;
+	ut.contract_address = gCoin[coinID].contract_address.toStdString().c_str();		// 取合约地址
 
-	CoinType coinType = gCoin["ETH"].type;
+	CoinType coinType = gCoin[coinID].type;
 	BtxonAPI api;
 	int ret;
-
-	// 取合约地址
-	ut.contract_address = gCoin["ETH"].contract_address.toStdString().c_str();
-
+	
 	// 取交易费
 	FeeInfo info;
 	ret = api.fetchFee(coinType, info);
@@ -205,14 +207,13 @@ static void test_sign()
 		return;
 }
 
-
 void EthTest()
 {
 	//test_validate_address();
-	test_get_private_key();
+	//test_get_private_key();
 	//test_get_public_key();
 	//test_get_address();
 	//test_get_balance();
 	//test_firmware_sign();
-	//test_sign();
+	test_sign();
 }

@@ -43,7 +43,7 @@ public:
     int fetchBalance(const CoinType& coinType, const std::string &wallet_address, u256& balance, u256 &froze);
 	int fetchBalanceV2(const CoinType& coinType, const std::string &wallet_address, bool is_force_refresh, u256& balance, u256& froze);
 	int getNonce(const CoinType& coinType, const std::string &wallet_address, u256& count);
-	int fetchFee(const CoinType& coinType, FeeInfo& feeinfo);
+	int fetchFee(const CoinType& coinType, FeeInfo& feeinfo, string from_address = "", string to_address = "");
 	int getLastBlockNumber(const CoinType& coinType , u256& bn);
 	int getUTXO(const CoinType& coinType, const std::string &wallet_address, vector<Utxo>& utxo_list);
 	int getScript(const std::string &txid, std::string& script);
@@ -54,13 +54,14 @@ public:
     int getCentralBalance(const QString &clientID, const int kind, CentralBalance& result);	//获取中央账户余额，先只取BMToken
 	int getUnionCount(const QString& clientID, int& softCount, int& hardCount);
 	int Unbind(const QString& clientID);
+	int getTRXBlockID(const CoinType& coinType, string& blockID);
 
     //以下函数非线程安全
 	int getPrice(const CoinType& type, CurrencyType currencyType, double &price);
 	int updateHTicker();
 
 private:
-	QMutex mutex;
+	static QAtomicInt isGettingData;
 
 	int parseResult(const QByteArray& result, QJsonDocument& doc, QJsonObject& data);
     int parseArrayResult(const QByteArray& result, QJsonDocument& doc, QJsonArray& data);

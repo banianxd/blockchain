@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <Qthread>
 
 int BtxonAPI::parseResult(const QByteArray& result, QJsonDocument& doc, QJsonObject& data)
 {
@@ -100,7 +101,7 @@ int BtxonAPI::parseArrayResult(const QByteArray& result, QJsonDocument& doc, QJs
     return code;
 }
 
-int BtxonAPI::getEOSInfo(const CoinType& coinType, std::string& infoStr)
+int BtxonAPI::getEOSInfo(const CoinType& coinType, string& infoStr)
 {
 	error_msg.clear();
 	QString coinID = GetCoinIDByType(coinType);
@@ -325,7 +326,21 @@ int BtxonAPI::getUTXO(const CoinType& coinType, const std::string &wallet_addres
 		return -1;
 
 	QJsonObject root = jsonDoc.object();
-	int code = root.value("code").toInt();
+	int code;
+	if (root.contains(("error")))
+	{
+		QJsonValue val = root["error"];
+		if (!val.isObject())
+			return -1;
+
+		QJsonObject err = val.toObject();
+		if (err.contains("statusCode"))
+			code = err["statusCode"].toInt();
+
+		return code;
+	}
+
+	code = root.value("code").toInt();
 	if (code != 200)
 		return code;
 
@@ -454,7 +469,7 @@ int BtxonAPI::getTxList(const CoinType& coinType, const std::string &wallet_addr
 	return 0;
 }
 
-int BtxonAPI::fetchFee(const CoinType& coinType, FeeInfo& feeinfo)
+int BtxonAPI::fetchFee(const CoinType& coinType, FeeInfo& feeinfo, string from_address, string to_address)
 {
 	error_msg.clear();
 	QString coinID = GetCoinIDByType(coinType);
@@ -465,12 +480,18 @@ int BtxonAPI::fetchFee(const CoinType& coinType, FeeInfo& feeinfo)
 	QString baseUrl(BASE_URL);
 	QString fullUrl = baseUrl.append(QString("/Wallet/getFee?coin_id=%1").arg(coinID));
 
+	if (!from_address.empty())
+		fullUrl += QString("&address=%1").arg(QString::fromStdString(from_address));
+
+	if (!to_address.empty())
+		fullUrl += QString("&to_address=%1").arg(QString::fromStdString(to_address));
+
 	const QByteArray& result = get(fullUrl, 15000);
 
     QJsonDocument doc;
     QJsonObject jsonData;
-    if (parseResult(result, doc, jsonData) == 200) {
-
+    if (parseResult(result, doc, jsonData) == 200)
+	{
         if (coinType.major ==  CoinTypeMajor::ETH)
 		{
             feeinfo.minFee = jsonData["low_gas_price"].toString().toULongLong();
@@ -482,7 +503,7 @@ int BtxonAPI::fetchFee(const CoinType& coinType, FeeInfo& feeinfo)
 				return -1;
 			}
         }
-		else if (coinType.major == CoinTypeMajor::BHP)
+		else if ((coinType.major == CoinTypeMajor::BHP) || (coinType.major == CoinTypeMajor::TRX))
 		{
 			feeinfo.minFee = jsonData["fee"].toString().toULongLong();
 			feeinfo.midFee = feeinfo.minFee;
@@ -518,14 +539,14 @@ int BtxonAPI::sendSignedTransaction(const CoinType& coinType, const string &from
 
 	QJsonObject obj;
 	obj.insert("coin_id", coinID);
-    obj.insert("action", action.c_str());
-    obj.insert("transaction_hash", hash.c_str());
-    obj.insert("from_address", from.c_str());
-    obj.insert("to_address", to.c_str());
+	obj.insert("action", action.c_str());
+	obj.insert("transaction_hash", hash.c_str());
+	obj.insert("from_address", from.c_str());
+	obj.insert("to_address", to.c_str());
 	obj.insert("nonce", nonce.str().c_str());
-    obj.insert("value", pay.str().c_str());
-    obj.insert("fee", fee.str().c_str());
-    obj.insert("data", signedTx.c_str());
+	obj.insert("value", pay.str().c_str());
+	obj.insert("fee", fee.str().c_str());
+	obj.insert("data", signedTx.c_str());
 
 	QByteArray data = QJsonDocument(obj).toJson(QJsonDocument::Compact);
 
@@ -588,12 +609,24 @@ static double usdt_usd = -1;
 static uint64_t update_time = 0;
 
 static std::map<CoinType, double> price_cache;
+QAtomicInt BtxonAPI::isGettingData = 0;
 
 // 取汇率
 int BtxonAPI::getPrice(const CoinType& type, CurrencyType currencyType, double &price)
 {
-	if (updateHTicker() == 0) {
+	if (updateHTicker() == 0)
+	{
 		price = 0;
+
+		int i;
+		for (i = 0; i < 100; i++)
+		{
+			if (isGettingData == 2)
+				break;
+			QThread::msleep(100);
+		}
+		if (i == 100)
+			return -1;
 
 		auto it = price_cache.find(type);
 		if (it != price_cache.end())
@@ -614,9 +647,13 @@ int BtxonAPI::updateHTicker()
 {
 	QDateTime time = QDateTime::currentDateTime();
 	uint64_t now = time.toSecsSinceEpoch();
+
+	if (isGettingData == 1)
+		return 0;
+
 	if (now - update_time > 1 * 60 * 60) 
 	{
-		mutex.lock();
+		isGettingData = 1;
 		QString baseUrl(BASE_URL);
 		QString fullUrl = baseUrl.append("/open/market");
 
@@ -631,7 +668,7 @@ int BtxonAPI::updateHTicker()
 
 				if (rootObj["status"] != "ok")
 				{
-					mutex.unlock();
+					isGettingData = 0;
 					return -1;
 				}
 				
@@ -679,11 +716,11 @@ int BtxonAPI::updateHTicker()
 				}
 
 				update_time = now;
-				mutex.unlock();
+				isGettingData = 2;
 				return 0;
 			}
 		}
-		mutex.unlock();
+		isGettingData = 0;
 		return -1;
 	}
 
@@ -854,3 +891,31 @@ int BtxonAPI::Unbind(const QString& clientID)
 
 	return retcode;
 }
+
+// https://test.btxon.com/api/Wallet/getTRXBlockID?coin_id=TRX
+int BtxonAPI::getTRXBlockID(const CoinType& coinType, string& blockID)
+{
+	error_msg.clear();
+	QString coinID = GetCoinIDByType(coinType);
+	if (coinID.isEmpty())
+		return -1;
+
+	QString baseUrl(BASE_URL);
+	QString fullUrl = baseUrl.append(QString("/Wallet/getTRXBlockID?coin_id=%1").arg(coinID));
+
+	const QByteArray& result = get(fullUrl, 15000);
+
+	QJsonDocument doc;
+	QJsonObject jsonData;
+	if (parseResult(result, doc, jsonData) == 200)
+	{
+		if (jsonData.contains("blockID"))
+		{
+			blockID = jsonData.value("blockID").toString().toStdString();
+			return 0;
+		}
+	}
+
+	return -1;
+}
+

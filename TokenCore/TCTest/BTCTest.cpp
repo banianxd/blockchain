@@ -85,6 +85,7 @@ static void test_firmware_sign()
 	ut.from_address = "mg9cmEEV7GB7NfsXPqc9yUvUjYH9EMUsuP";
 	ut.to_address = "mjqGHq79osmPUsTHeREtUx3egEa7z3o7Yo";
 	ut.change_address = "mg9cmEEV7GB7NfsXPqc9yUvUjYH9EMUsuP";
+	ut.pay = gCoin["tBTC"].from_display("0.2");
 
 	CoinType coinType = gCoin["tBTC"].type;
 	BtxonAPI api;
@@ -121,7 +122,6 @@ static void test_firmware_sign()
 		return;
 	}
 
-	ut.pay = gCoin["tBTC"].from_display("0.2");
 	ut.fee_count = BTCAPI::get_tx_len(&ut);
 	ut.fee_price = (u256)info.midFee;
 	ut.from_wallet_index = 0;
@@ -368,8 +368,8 @@ void test_usdt_sign()
 // sp
 static void sp_test_sign()
 {
-	string seed = mnemonic_to_seed("manual shoot jelly view scrub head also price cliff upset honey farm daring among route cheese evidence caution joy lock asset occur catalog high", "");
-	//string seed = mnemonic_to_seed("blue submit hurt base spray learn permit two absurd brown large extend awkward cool hair resist quarter fever brave sight palm argue adapt slush", "");
+	string seed = mnemonic_to_seed("manual shoot jelly view scrub head also price cliff upset honey farm daring among route cheese evidence caution joy lock asset occur catalog high", "");	// Ð¡µû
+	//string seed = mnemonic_to_seed("blue submit hurt base spray learn permit two absurd brown large extend awkward cool hair resist quarter fever brave sight palm argue adapt slush", "");	// ÕÅÑï
 	string private_key = BTCAPI::get_private_key(false, seed);
 	string public_key = BTCAPI::get_public_key(private_key);
 	string address = BTCAPI::get_address(false, public_key);	// 1K2VpuurN1seRUvCUHj6DLGiFWASJifZ7y

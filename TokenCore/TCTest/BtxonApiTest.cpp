@@ -66,8 +66,24 @@ void TestGetScript()
 	}
 }
 
+void TestGetKeyAccounts()
+{
+	BtxonAPI api;
+	CoinType coinType = CT_EOS;
+	vector<string> account_list;
+	int ret = api.getKeyAccounts(coinType, "EOS6KmdYhFRpD3FYjgsTFB7yfiZn48MS14AVXw7pd1ana5A6B8btH", account_list);
+	if (ret == 0)
+	{
+		for (int i = 0; i < account_list.size(); i++)
+		{
+			printf("%d: %s\n", i, account_list[i].c_str());
+		}
+	}
+}
+
 void BtxonAPITest()
 {
+	/*
 	GetUtxo(CT_BTC_TEST, "mg9cmEEV7GB7NfsXPqc9yUvUjYH9EMUsuP");
 	TestGetTxList();
 	TestGetScript();
@@ -75,4 +91,7 @@ void BtxonAPITest()
 	BtxonAPI api;
 	double price = 0;
 	int ret = api.getPrice(CT_USDT, CurrencyType::CNY, price);
+	*/
+	TestGetKeyAccounts();
 }
+
