@@ -448,6 +448,149 @@ static void sp_test_sign()
 	printf("%s\n", ut.tx_str.c_str());
 }
 
+static void test_get_multisign_address()
+{
+	std::string str_pubkey1 = "02d7383b18a3d62fb0ef02e27770638ae05d29b87a6986f00ebb968fe1a04616fe";
+	std::string str_pubkey2 = "022592d7c6bb03eb371e8e667241a8a157e8390af9d61be9856a770f3b0b3c5877";
+	std::string str_pubkey3 = "036966acf2e64741b87a8ef2e26636a5b63b180d25385ccb9620589cac63e4b285";
+
+	std::vector<std::string> vec_pubkey;
+	vec_pubkey.push_back(str_pubkey1);
+	vec_pubkey.push_back(str_pubkey2);
+	vec_pubkey.push_back(str_pubkey3);
+	std::string str_redeem_script = BTCAPI::get_redeem_script(vec_pubkey, 2, 3);
+	VF("get_multisign_script", (str_redeem_script == "522102d7383b18a3d62fb0ef02e27770638ae05d29b87a6986f00ebb968fe1a04616fe21022592d7c6bb03eb371e8e667241a8a157e8390af9d61be9856a770f3b0b3c587721036966acf2e64741b87a8ef2e26636a5b63b180d25385ccb9620589cac63e4b28553ae"));
+
+	string mutli_address = BTCAPI::get_multisign_address(str_redeem_script, false);
+	VF("get_multisign_address", (mutli_address == "35N8Ltzqs78xyhKrNbuxNpVaxp21mgCMbb"));
+}
+
+static void test_multisign_tx()
+{
+	// 多签地址向普通地址转账
+	string str_address = "35N8Ltzqs78xyhKrNbuxNpVaxp21mgCMbb";
+	string str_prikey1 = "e2d742495a1de33e2c9d4a9b01cbea1e94f022482344146bee00ec2082634867";
+	string str_prikey2 = "3d3bb0eb4ee391ee43caf59ed9635adc3a26d6edc438f2c1071d3698173e37ec";
+
+	string str_pubkey1 = "02d7383b18a3d62fb0ef02e27770638ae05d29b87a6986f00ebb968fe1a04616fe";
+	string str_pubkey2 = "022592d7c6bb03eb371e8e667241a8a157e8390af9d61be9856a770f3b0b3c5877";
+	string str_pubkey3 = "036966acf2e64741b87a8ef2e26636a5b63b180d25385ccb9620589cac63e4b285";
+
+	std::vector<std::string> vec_pubkey;
+	vec_pubkey.push_back(str_pubkey1);
+	vec_pubkey.push_back(str_pubkey2);
+	vec_pubkey.push_back(str_pubkey3);
+	std::string str_redeem_script = BTCAPI::get_redeem_script(vec_pubkey, 2, 3);
+
+	UserTransaction ut;
+	ut.from_address = "35N8Ltzqs78xyhKrNbuxNpVaxp21mgCMbb";
+	ut.to_address = "1DBPJJoRSarbjTeNmAUxwmRPYP6vEQgztD";
+	ut.change_address = "35N8Ltzqs78xyhKrNbuxNpVaxp21mgCMbb";
+
+	CoinType coinType = gCoin["BTC"].type;
+	BtxonAPI api;
+	int ret = 0;
+
+	// 取余额
+	u256 balance, froze;
+	ret = api.fetchBalanceV2(coinType, ut.from_address, true, balance, froze);
+	if (ret) {
+		printf("取余额失败\n");
+		return;
+	}
+
+	// 取 UTXO
+	ret = api.getUTXO(coinType, ut.from_address, ut.utxo_list);
+	if (ret) {
+		printf("取UTXO失败\n");
+		return;
+	}
+
+	printf("%s\n", ut.utxo_list[0].script.c_str());
+
+	// 取交易费
+	FeeInfo info;
+	ret = api.fetchFee(coinType, info);
+	if (ret) {
+		printf("取交易费失败\n");
+		return;
+	}
+
+	ut.pay = gCoin["BTC"].from_display("0.00005");
+	ut.fee_count = 1;
+	ut.fee_price = 4000;
+	ut.from_wallet_index = 0;
+	ut.change_wallet_index = 0;
+
+	ret = BTCAPI::make_unsign_tx(&ut);
+	if (ret != 0) {
+		return;
+	}		
+	printf("unsign tx:\n%s\n", ut.tx_str.c_str());
+
+	BTCAPI::multisign_tx(coinType.is_testnet(), &ut, str_prikey1, str_redeem_script);
+	BTCAPI::multisign_tx(coinType.is_testnet(), &ut, str_prikey2, str_redeem_script);
+	BTCAPI::make_multisign_tx(coinType.is_testnet(), &ut, str_redeem_script);
+	printf("sign_tx\n%s\n", ut.tx_str.c_str());
+}
+
+static void test_sign1()
+{
+	UserTransaction ut;
+	ut.from_address = "1DBPJJoRSarbjTeNmAUxwmRPYP6vEQgztD";
+	ut.to_address = "35N8Ltzqs78xyhKrNbuxNpVaxp21mgCMbb";
+	//ut.change_address = "1DBPJJoRSarbjTeNmAUxwmRPYP6vEQgztD";
+	ut.pay = 546;
+
+	CoinType coinType = gCoin["BTC"].type;
+	BtxonAPI api;
+	int ret = 0;
+
+	// 取余额
+	u256 balance, froze;
+	ret = api.fetchBalanceV2(coinType, ut.from_address, true, balance, froze);
+	if (ret != 0) {
+		printf("取余额失败\n");
+		return;
+	} 
+	if (balance < ut.pay) {
+		printf("余额不足\n");
+		return;
+	}
+
+	// 取 UTXO
+	ret = api.getUTXO(coinType, ut.from_address, ut.utxo_list);
+	if (ret != 0) {
+		printf("取UTXO失败\n");
+		return;
+	}
+
+	// 取交易费
+	FeeInfo info;
+	ret = api.fetchFee(coinType, info);
+	if (ret != 0) {
+		printf("取交易费失败\n");
+		return;
+	}
+
+	//ut.pay = gCoin["tBTC"].from_display("0.2");
+	//ut.fee_count = BTCAPI::get_tx_len(&ut);
+	//ut.fee_price = (u256)info.midFee;
+	ut.fee_count = 1;
+	ut.fee_price = 2850;
+	ut.from_wallet_index = 0;
+	ut.change_wallet_index = 0;
+
+	// 软件签名 ==========================================
+	ret = BTCAPI::make_unsign_tx(&ut);
+	if (ret != 0) {
+		return;
+	}
+	BTCAPI::sign_tx(coinType.is_testnet(), &ut, "8cde367ccbe92cc7c05dde05603ca416935919eb0276ce0eb307870942d92e00");
+	BTCAPI::make_sign_tx(coinType.is_testnet(), &ut);
+	printf("sign_tx\n%s\n", ut.tx_str.c_str());
+}
+
 void BTCTest()
 {
 	//test_validate_address();
@@ -469,5 +612,9 @@ void BTCTest()
 	//GetWalletBalance();
 	//test_usdt_sign();
 
-	sp_test_sign();
+	//sp_test_sign();
+
+	test_get_multisign_address();
+	//test_multisign_tx();
+	//test_sign1();
 }
