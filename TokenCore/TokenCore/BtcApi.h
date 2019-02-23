@@ -5,6 +5,9 @@
 
 namespace BTCAPI
 {
+	string str_reverse(const string &str);
+	string get_tag_len(uint64_t u64_len);
+
 	bool validate_address(string address);										// 验证 BTC 地址的有效性
 	string get_private_key(bool is_testnet, const string& seed);				// 从种子生成私钥
 	string get_public_key(const string& private_key, bool compress = true);		// 从私钥生成公钥
@@ -17,6 +20,12 @@ namespace BTCAPI
 	void firmware_process_result(UserTransaction* ut, int index, char* result, int result_size);
 	void sign_tx(bool is_testnet, UserTransaction* ut, const string& private_key);
 	void make_sign_tx(bool is_testnet, UserTransaction* ut);
+
+	// m,n分别为m-of-n中的m,n
+	string get_redeem_script(const vector<string> &vec_pubkey, uint8_t m, uint8_t n);
+	string get_multisign_address(const string &redeem_script, bool is_testnet = false);
+	void multisign_tx(bool is_testnet, UserTransaction* ut, const string &private_key, const string &redeem_script);
+	void make_multisign_tx(bool is_testnet, UserTransaction* ut, const string &redeem_script);
 
 	string decode_script(const string& script_str);								// 解码脚本
 	string encode_script(const string& script_str);								// 编码脚本

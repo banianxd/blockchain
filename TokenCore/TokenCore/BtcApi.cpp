@@ -62,14 +62,36 @@ void tx_decode(bool is_testnet, const string tx_str, TransactionBill& tb)
 		index += 64;
 		in.previous_output_index = little_endian_to_uint32_t(tx_str.substr(index, 8));
 		index += 8;
-		string str_script_len = tx_str.substr(index, 2);
+		string str_script_len_tag = tx_str.substr(index, 2);
 		index += 2;
-		int unlock_script_len = string_to_uint8_t(str_script_len);
-		if (0 != unlock_script_len)
-		{
-			in.script = tx_str.substr(index, unlock_script_len * 2);
-			index += unlock_script_len * 2;
+
+		uint8_t script_len_tag = string_to_uint8_t(str_script_len_tag);
+		if ( 0 < script_len_tag && script_len_tag < 0xfd) {
+			in.script = tx_str.substr(index, script_len_tag * 2);
+			index += script_len_tag * 2;
 		}
+		else if (script_len_tag == 0xfd) {
+			string str_script_len = tx_str.substr(index, 4);
+			index += 4;
+			uint16_t script_len = little_endian_to_uint16_t(str_script_len);
+			in.script = tx_str.substr(index, script_len * 2);
+			index += script_len * 2;
+		}
+		else if (script_len_tag == 0xfe) {
+			string str_script_len = tx_str.substr(index, 8);
+			index += 8;
+			uint32_t script_len = little_endian_to_uint32_t(str_script_len);
+			in.script = tx_str.substr(index, script_len * 2);
+			index += script_len * 2;
+		}
+		else if (script_len_tag == 0xff){
+			string str_script_len = tx_str.substr(index, 16);
+			index += 16;
+			uint64_t script_len = little_endian_to_uint64_t(str_script_len);
+			in.script = tx_str.substr(index, script_len * 2);
+			index += script_len * 2;
+		}
+
 		in.sequence = little_endian_to_uint32_t(tx_str.substr(index, 8));
 		index += 8;
 
@@ -117,21 +139,16 @@ string tx_encode(const TransactionBill& tb)
 		str_encode += reverse_big_little_endian(tb.inputs[i].previous_output_hash);
 		str_encode += uint32_t_to_little_endian(tb.inputs[i].previous_output_index);
 
-		if ("" == tb.inputs[i].script)
-			str_encode += "00";
-		else
-		{
-			uint8_t u8_sign_script_len = (uint8_t)tb.inputs[i].script.size();
-			string str_sign_script_len = uint8_t_to_string(u8_sign_script_len / 2);
-			str_encode += str_sign_script_len;
+		uint64_t script_len = (uint64_t)(tb.inputs[i].script.size() / 2);
+		string str_tag_len = BTCAPI::get_tag_len(script_len);
+		str_encode += str_tag_len;
+		if (str_tag_len != "00")
 			str_encode += tb.inputs[i].script;
-		}
 
 		str_encode += uint32_t_to_little_endian(tb.inputs[i].sequence);
 	}
 
 	str_encode += uint8_t_to_string((uint8_t)(tb.outputs.size()));
-
 	for (size_t i = 0; i < tb.outputs.size(); i++)
 	{
 		str_encode = str_encode + uint64_t_to_little_endian(tb.outputs[i].value);
@@ -142,12 +159,26 @@ string tx_encode(const TransactionBill& tb)
 	}
 
 	str_encode += uint32_t_to_little_endian(tb.locktime);
-
 	return str_encode;
 }
 
 namespace BTCAPI
 {
+
+	string get_tag_len(uint64_t u64_len) {
+	if (u64_len < 0xfd) {
+		return uint8_t_to_string((uint8_t)u64_len);
+	}
+	else if (u64_len < 0xffff) {
+		return "fd" + uint16_t_to_little_endian((uint16_t)u64_len);
+	}
+	else if (u64_len < 0xffffffff) {
+		return "fe" + uint32_t_to_little_endian((uint32_t)u64_len);
+	}
+	else {
+		return "ff" + uint64_t_to_little_endian(u64_len);
+	}
+}
 
 bool validate_address(string address)
 {
@@ -246,6 +277,45 @@ string get_address(bool is_testnet, const string& public_key)
 	return encode_base58check(hash, version);
 }
 
+string get_redeem_script(const vector<string> &vec_pubkey, uint8_t m, uint8_t n)
+{
+	if (n > 0x0f || m > n || n != vec_pubkey.size())
+		return string("");
+
+	m += 80;
+	n += 80;
+	string str_redeem_script = uint8_t_to_string(m);
+	for (size_t i = 0; i < vec_pubkey.size(); ++i)
+	{
+		if (66 != vec_pubkey[i].size() && 130 != vec_pubkey[i].size())
+			return string("");
+
+		str_redeem_script += uint8_t_to_string((uint8_t)vec_pubkey[i].size() / 2);
+		str_redeem_script += vec_pubkey[i];
+	}
+	str_redeem_script += uint8_t_to_string(n);
+	str_redeem_script += "ae";
+	return str_redeem_script;
+}
+
+string get_multisign_address(const string &str_redeem_script, bool is_testnet /* = false */)
+{
+	if ("" == str_redeem_script) {
+		return string("");
+	}
+
+	Binary sz_redeem_script = Binary::decode(str_redeem_script);
+	Binary sz_script_hash = bitcoin160(sz_redeem_script);
+
+	uint8_t version = 0;
+	if (is_testnet)
+		version = 0xc4;
+	else
+		version = 0x05;
+
+	return encode_base58check(sz_script_hash, version);
+}
+
 string decode_script(const string& script_str)
 {
 	return decode_script_(script_str);
@@ -261,18 +331,15 @@ string tx_hash(const string& tx_str)
 	return Binary::encode(bitcoin256(Binary::decode(tx_str)));
 }
 
-string signature(const string& str_prikey, string& str_hash)
+string signature(const string& str_prikey, const string& str_hash)
 {
 	if (str_prikey.size() != 64 || str_hash.size() != 64)
 		return string("");
 
 	Binary hash = Binary::decode(str_hash);
 	Binary prikey = Binary::decode(str_prikey);
-	const struct uECC_Curve_t * curve = uECC_secp256k1();
-
 	Binary sign(64);
 	int v = mECC_sign_forbc(prikey.data(), hash.data(), sign.data());
-
 	return Binary::encode(sign);
 }
 
@@ -325,7 +392,6 @@ string sign_input(bool is_testnet, const string& str_tx, const int input_index, 
 	string str_hash = Binary::encode(bitcoin256(Binary::decode(str_script_tx)));
 	string str_sign = signature(private_key, str_hash);
 	str_sign = sig_serialize(str_sign) + "01";
-
 	return str_sign;
 }
 
@@ -566,6 +632,26 @@ void sign_tx(bool is_testnet, UserTransaction* ut, const string& private_key)
 	}
 }
 
+void multisign_tx(bool is_testnet, UserTransaction* ut, const string &private_key, const string &redeem_script)
+{
+	if (NULL == ut || "" == private_key || "" == redeem_script)
+		return;
+
+	//cout << "prikey:\n" << private_key << endl;
+	for (int i = 0; i < ut->input_count; i++)
+	{
+		string sign_data;
+		//cout << "redeem_script:\n" << str_redeem_script << endl;
+		sign_data = sign_input(is_testnet, ut->tx_str, i, redeem_script, private_key);
+
+		//cout << "sign_data:\n" << sign_data << endl;
+		if (ut->input_sign_data.size() == i) {
+			ut->input_sign_data.push_back(vector<Binary>());
+		}
+		ut->input_sign_data[i].push_back(Binary::decode(sign_data));
+	}
+}
+
 void make_sign_tx(bool is_testnet, UserTransaction* ut)
 {
 	TransactionBill tx;
@@ -585,6 +671,34 @@ void make_sign_tx(bool is_testnet, UserTransaction* ut)
 		tx.inputs[i].script = str_script;
 	}
 
+	ut->tx_str = tx_encode(tx);
+}
+
+void make_multisign_tx(bool is_testnet, UserTransaction* ut, const string &redeem_script)
+{
+	TransactionBill tx;
+	tx_decode(is_testnet, ut->tx_str, tx);
+
+	for (int i = 0; i < ut->input_count; i++)
+	{
+		string str_unlock_script;
+
+		str_unlock_script += "00";		// OP_0
+		string str_signs;
+		for (size_t sign_count = 0; sign_count < ut->input_sign_data[i].size(); ++sign_count)
+		{
+			string str_sign = Binary::encode(ut->input_sign_data[i][sign_count]);
+			str_signs += uint8_t_to_string((uint8_t)str_sign.size() / 2);
+			str_signs += str_sign;
+		}
+
+		str_unlock_script += str_signs;
+		str_unlock_script += "4c";
+		str_unlock_script += get_tag_len((uint8_t)redeem_script.size() / 2);
+		str_unlock_script += redeem_script;
+		tx.inputs[i].script = str_unlock_script;
+		//cout << "unlock script:\n" << str_unlock_script << endl;
+	}
 	ut->tx_str = tx_encode(tx);
 }
 
