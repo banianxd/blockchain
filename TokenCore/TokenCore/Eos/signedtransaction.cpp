@@ -5,12 +5,15 @@
 #include <crypto/hash.h>
 #include <crypto/ripemd160.h>
 #include <crypto/sha256.h>
+#include <android/log.h>
 
 extern "C"
 {
 #include <uEcc/macroECC.h>
 }
 
+#define TAG    "tokencore_eos" // 这个是自定义的LOG的标识
+#define LOGD(...)  __android_log_print(ANDROID_LOG_DEBUG,TAG,__VA_ARGS__) // 定义LOGD类型
 SignedTransaction::SignedTransaction()
 {
 
@@ -129,6 +132,13 @@ void SignedTransaction::setSignatures(const vector<string> &signatures)
 void SignedTransaction::sign(const Binary& pri_key, const Binary& chain_id)
 {
 	Binary packedBytes = getDigestForSignature(chain_id);
+	string message;
+	char char_pack[10];
+    for (int i = 0; i < packedBytes.size(); ++i) {
+        sprintf(char_pack,"%02x",packedBytes[i]);
+        message += char_pack;
+    }
+//    LOGD("-------packedBytes------> %s", message.c_str());
 
     uint8_t packedSha256[SHA256_DIGEST_LENGTH];
 	SHA256_(packedBytes.data(), packedBytes.size(), packedSha256);
