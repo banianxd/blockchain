@@ -204,6 +204,7 @@ struct UserTransaction
 	int  input_count;			// 输入的个数
 	Binary public_key;			// 付款地址的公钥
 	vector<Binary> sig_data;	// 签名数据列表
+	vector<vector<Binary> > input_sign_data;	// 签名数据列表
 
 	// 输出内容
 	string tx_str;				// 生成的 tx 串
