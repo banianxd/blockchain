@@ -81,12 +81,12 @@ static void test_all()
 	}
 
 	{
-		// 小蝶的币盾
-		string seed = mnemonic_to_seed("manual shoot jelly view scrub head also price cliff upset honey farm daring among route cheese evidence caution joy lock asset occur catalog high", "");
+		// 张扬的币盾2
+		string seed = mnemonic_to_seed("swift sentence curtain home doll chief dune best spin critic unable brother movie inmate vibrant input deputy canvas favorite order genius crew bachelor still", "");
 		string private_key = TRONAPI::get_private_key(seed);
 		string str_pubkey = TRONAPI::get_public_key(private_key);
 		string str_mainnet_address = TRONAPI::get_address(str_pubkey);
-		VF("test_all", str_mainnet_address == "TYHqefGRmzqfPERaeYo8dcgwYKnJtJXXXC");
+		VF("test_all", str_mainnet_address == "TBzharsUad87CwKzpGZq8jArzzGxE5aa6N");
 	}
 }
 
@@ -330,8 +330,9 @@ void TronTest()
 	//test_get_address();
 	//test_make_unsigned_tx_from_json();
 	//test_sign();
-	test_firmware_sign();
+	//test_firmware_sign();
 	//get_trxs_balance();
+	test_all();
 
 #if 0
 	//get_firmware_info();
