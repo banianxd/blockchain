@@ -1,0 +1,49 @@
+https://github.com/bitcoin/bips/blob/master/bip-0142.mediawiki
+// bit142
+p2xtZoXeX5X8BP8JfFhQK2nD3emtjch7UeFm
+// pubkey
+0450863AD64A87AE8A2FE83C1AF1A8403CB53F53E486D8511DAD8A04887E5B23522CD470243453A299FA9E77237716103ABC11A1DF38855ED6F2EE187E9C582BA6
+// bitcoin160
+010966776006953d5567439e5e39f86a0d273bee
+
+06	// 1-byte address version, P2WPKH(0x06:mainnet,0x03:testnet), P2WSH(0x0a:mainnet, 0x28:testnet)
+00	// 1-byte witness program version, Only version 0 is defined in BIP141. Versions 1 to 16 are reserved for future extensions
+00	// Following the witness program version is a 0x00 padding to make sure that each witness program version will have a unique prefix
+010966776006953d5567439e5e39f86a0d273bee	// Following the padding is the program hash, 20 byte for a P2WPKH address and 32 byte for a P2WSH address
+97c21de4	// The 4-byte checksum is the first four bytes of the double SHA256 hash of the serialization of the previous items
+
+
+https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32
+// bech32
+pubkey: 0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
+0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8
+// 751e76e8199196d454941c45d1b3a323f1433bd6 = bitcoin160(pubkey)
+// 0x751e76e8199196d454941c45d1b3a323f1433bd6
+Mainnet P2WPKH: bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4
+Testnet P2WPKH: tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx
+
+// 0x1863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262
+Mainnet P2WSH: bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3
+Testnet P2WSH: tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7
+
+script = 0014751e76e8199196d454941c45d1b3a323f1433bd6
+hash160(script) = bcfeb728b584253d5f3f70bcb780e9ef218a68f4
+
+script = 001491b24bf9f5288532960ac687abb035127b1d28a5
+hash160(script) = 17743beb429c55c942d2ec703b98c4d57c2df5c6
+
+
+https://blog.csdn.net/QQ604666459/article/details/82592227
+// address begin with 3
+prikey: 30b430b434ad801cd561fd57c9b083dc3ebe787250e27c367b6599a1a57654f9
+pubkey: 02b7be4fc0883a84e65bd33a2e528a32c409883c937285c07d2a2dbc3793e75563
+redeem_script: 001484ece8cd565def42699199256a3a5f17e9b11b96
+script_pubkey: c2bc1ff597b86487625572d3a63da7d740eaa271
+pubkey: 04b7be4fc0883a84e65bd33a2e528a32c409883c937285c07d2a2dbc3793e7556353f1571493e362add7accfa9faec27d1c327a7859374649a3f4c265161037116
+segwit_addr: 3KSgNuGVdF73seRMM8mRMPcbUb9SQmJTfy
+05 c2bc1ff597b86487625572d3a63da7d740eaa271 4631fb84
+
+prikey: 23ea99399991e9153ab1cb3d0edf81c411aaa80686f94474e8ada8a0a7308ae9
+pubkey: 0281aeec4695d174f5fe88b56a08aa4edd35e5f1d2bfaf7d33cc2b924f98b37bea
+pubkey: 0481aeec4695d174f5fe88b56a08aa4edd35e5f1d2bfaf7d33cc2b924f98b37bead818f22b320598459c0c762513cfe6acc691950fcee610ed165e195be3d31cb2
+segwit_addr: 3FuxhhZDUzsPLheanuKWqqw8YHc6QDqv9m
