@@ -1,0 +1,18 @@
+Index :0
+TimeStamp: 1551842991
+Data: Genesis Block
+PrevHash: 
+Hash: 6398cb6c425f1763cf6a82d11ec91f236bafcd11c915744f4ce82e5b10f09fea
+_____________________________
+Index :1
+TimeStamp: 1551842991
+Data: Send 1 BTC to Ivan
+PrevHash: 6398cb6c425f1763cf6a82d11ec91f236bafcd11c915744f4ce82e5b10f09fea
+Hash: ba53b543da045950e05e9b2dce9d6685f9f40d74d96b1e7dfdb932d8e0f14e42
+_____________________________
+Index :2
+TimeStamp: 1551842991
+Data: Send 2 more BTC to Ivan
+PrevHash: ba53b543da045950e05e9b2dce9d6685f9f40d74d96b1e7dfdb932d8e0f14e42
+Hash: ed0d0ffda090844008414d407404e95794a6d84fd2c367baf066efebb173f379
+_____________________________
